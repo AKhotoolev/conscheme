@@ -525,7 +525,7 @@ func _number_to_string(num Obj, radix Obj) Obj {
 
 // TODO: handle flonums, compnums, ratnums, etc
 func _string_to_number(_str Obj, _radix Obj) Obj {
-	str := string((_str).([]rune))
+	str := string(mustString(_str))
 
 	radix := number_to_int(_radix)
 	switch {
