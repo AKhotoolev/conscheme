@@ -137,7 +137,7 @@ func try_open_image(fn string) (*Deserializer, error) {
 func _bytecode_load(fn Obj) Obj {
 	// Loads bytecode from a named file. Returns a vector of
 	// bytecode and constant pool.
-	filename := fn.([]rune)
+	filename := mustString(fn)
 	d, e := try_open_image(string(filename))
 	if e != nil {
 		return Eol
@@ -258,7 +258,7 @@ func copy_stack(f *Frame, argstack Argstack) *Stack {
 
 func _bytecode_run(bytecode, constants, current_thread Obj) Obj {
 	// The bytecode is 32-bit integers encoded in little endian format
-	_bc := (bytecode).([]byte)
+	_bc := mustByteVector(bytecode)
 	bc := make([]uint32, len(_bc)/4)
 	rbc := bytes.NewBuffer(_bc)
 
@@ -275,7 +275,7 @@ func _bytecode_run(bytecode, constants, current_thread Obj) Obj {
 	// This means that primitives need access to the stack. That
 	// will also be useful for apply and call/cc.
 	return run(current_thread,
-		start_frame(int(i&OP1_R2), &Code{bc, (constants).([]Obj)}))
+		start_frame(int(i&OP1_R2), &Code{bc, mustVector(constants)}))
 }
 
 func run(ct Obj, stack *Frame) Obj {
@@ -351,12 +351,12 @@ func run(ct Obj, stack *Frame) Obj {
 			stack.regs[i&OP1_R2] = &Procedure{apply: apply_closure, free: f, code: stack.code}
 
 		case CLOSURE_NAME:
-			p := (stack.regs[i&OP1_R2]).(*Procedure)
+			p := mustProcedure(stack.regs[i&OP1_R2])
 			name := stack.regs[(i&OP1_R1)>>OP1_R1_SHIFT]
 			p.name = scm2str(name)
 
 		case CLOSURE_VAR:
-			p := (stack.regs[i&OP1_R2]).(*Procedure)
+			p := mustProcedure(stack.regs[i&OP1_R2])
 			value := stack.regs[(i&OP1_R1)>>OP1_R1_SHIFT]
 			freevar := (i & OP1_N) >> OP1_N_SHIFT
 			p.free[freevar] = value
@@ -370,7 +370,7 @@ func run(ct Obj, stack *Frame) Obj {
 			r := int(i & OP1_R2)
 			argnum := int((i & OP1_N) >> OP1_N_SHIFT)
 			_p := stack.regs[(i&OP1_R1)>>OP1_R1_SHIFT]
-			p := (_p).(*Procedure)
+			p := mustProcedure(_p)
 			args := argstack[len(argstack)-argnum:]
 			argstack = argstack[:len(argstack)-argnum]
 			if p.apply == nil {
@@ -393,7 +393,7 @@ func run(ct Obj, stack *Frame) Obj {
 
 		case TAILCALL:
 			argnum := int((i & OP1_N) >> OP1_N_SHIFT)
-			p := stack.regs[i&OP1_R2].(*Procedure)
+			p := mustProcedure(stack.regs[i&OP1_R2])
 			args := argstack[len(argstack)-argnum:]
 			argstack = argstack[:len(argstack)-argnum]
 			if p.apply == nil {
@@ -432,7 +432,7 @@ func run(ct Obj, stack *Frame) Obj {
 		case APPLYCALL:
 			r := int(i & OP1_R2)
 			argnum := int((i & OP1_N) >> OP1_N_SHIFT)
-			p := stack.regs[(i&OP1_R1)>>OP1_R1_SHIFT].(*Procedure)
+			p := mustProcedure(stack.regs[(i&OP1_R1)>>OP1_R1_SHIFT])
 
 			restargs := argstack.Pop()
 			restlen := fixnum_to_int(Length(restargs))
@@ -462,7 +462,7 @@ func run(ct Obj, stack *Frame) Obj {
 
 		case TAILAPPLY:
 			argnum := int((i & OP1_N) >> OP1_N_SHIFT)
-			p := stack.regs[i&OP1_R2].(*Procedure)
+			p := mustProcedure(stack.regs[i&OP1_R2])
 			restargs := argstack.Pop()
 			restlen := fixnum_to_int(Length(restargs))
 			args := argstack[len(argstack)-argnum:]
@@ -502,7 +502,7 @@ func run(ct Obj, stack *Frame) Obj {
 				copied_stack.argstack.Push(dst)
 				stack.regs[dst] = copied_stack
 			case 1: // restore-stack
-				stk := stack.regs[(i & OP1_R2)].(*Stack)
+				stk := mustStack(stack.regs[(i & OP1_R2)])
 				return_value := stack.regs[(i&OP1_R1)>>OP1_R1_SHIFT]
 				new_stack := copy_frame(stk.frame)
 				argstack = append([]Obj{}, stk.argstack...)
@@ -529,7 +529,7 @@ func run(ct Obj, stack *Frame) Obj {
 			stack.regs[i&OP2_R] = stack.code.consts[(i&OP2_N)>>OP2_N_SHIFT]
 
 		case CLOSURE_LABEL:
-			p := (stack.regs[i&OP2_R]).(*Procedure)
+			p := mustProcedure(stack.regs[i&OP2_R])
 			disp := (i & OP2_N) >> OP2_N_SHIFT
 			abs := pc - 1 + int17(disp)
 			p.label = abs
@@ -566,7 +566,7 @@ func run(ct Obj, stack *Frame) Obj {
 
 func apply_procedure(oproc Obj, args []Obj, ct Obj) Obj {
 	// oproc should be a Procedure.
-	proc := (oproc).(*Procedure)
+	proc := mustProcedure(oproc)
 	if proc.apply == nil {
 		return apply_primitive(proc, args, ct)
 	} else {

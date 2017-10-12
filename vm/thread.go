@@ -70,39 +70,39 @@ func thread_p(thread Obj) Obj {
 }
 
 func thread_name(thread Obj) Obj {
-	t := (thread).(*Thread)
+	t := mustThread(thread)
 	return t.name
 }
 
 func thread_specific(thread Obj) Obj {
-	t := (thread).(*Thread)
+	t := mustThread(thread)
 	return t.specific
 }
 
 func thread_specific_set_ex(thread, v Obj) Obj {
-	t := (thread).(*Thread)
+	t := mustThread(thread)
 	t.specific = v
 	return Void
 }
 
 func thread_queue(thread Obj) Obj {
-	t := (thread).(*Thread)
+	t := mustThread(thread)
 	return t.queue
 }
 
 func thread_queue_set_ex(thread, v Obj) Obj {
-	t := (thread).(*Thread)
+	t := mustThread(thread)
 	t.queue = v
 	return Void
 }
 
 func thread_winders(thread Obj) Obj {
-	t := (thread).(*Thread)
+	t := mustThread(thread)
 	return t.winders
 }
 
 func thread_winders_set_ex(thread, v Obj) Obj {
-	t := (thread).(*Thread)
+	t := mustThread(thread)
 	t.winders = v
 	return Void
 }
@@ -113,13 +113,13 @@ func thread_yield_ex() Obj {
 }
 
 func thread_link_ex(_t1, _t2 Obj) Obj {
-	t1 := (_t1).(*Thread)
+	t1 := mustThread(_t1)
 	t1.links.PushFront(_t2)
 	return Void
 }
 
 func send(thread, o Obj) Obj {
-	t := (thread).(*Thread)
+	t := mustThread(thread)
 	go func(t *Thread, o Obj) {
 		t.channel <- o
 	}(t, o)
@@ -127,18 +127,18 @@ func send(thread, o Obj) Obj {
 }
 
 func _receive(thread Obj) Obj {
-	t := (thread).(*Thread)
+	t := mustThread(thread)
 	return <-t.channel
 }
 
 func thread_start_ex(thread Obj) Obj {
-	t := (thread).(*Thread)
+	t := mustThread(thread)
 
 	go t.once.Do(func() {
 		defer func() {
 			if err := recover(); err != nil {
 				for e := t.links.Front(); e != nil; e = e.Next() {
-					send((e.Value).(Obj), _vector(intern("died"), thread))
+					send(e.Value, _vector(intern("died"), thread))
 				}
 				return
 			}

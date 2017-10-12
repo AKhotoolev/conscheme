@@ -150,19 +150,19 @@ func current_output_port() Obj {
 }
 
 func file_exists_p(fn Obj) Obj {
-	_, err := os.Stat(string((fn).([]rune)))
+	_, err := os.Stat(string(mustString(fn)))
 	return Make_boolean(err == nil)
 }
 
 func delete_file(fn Obj) Obj {
-	if err := os.Remove(string((fn).([]rune))); err != nil {
+	if err := os.Remove(string(mustString(fn))); err != nil {
 		panic(fmt.Sprintf("I/O error: %s", err))
 	}
 	return Void
 }
 
 func open_input_file(fn Obj) Obj {
-	f, e := os.OpenFile(string((fn).([]rune)), os.O_RDONLY, 0666)
+	f, e := os.OpenFile(string(mustString(fn)), os.O_RDONLY, 0666)
 	if e != nil {
 		panic(fmt.Sprintf("I/O error: %s", e))
 	}
@@ -170,7 +170,7 @@ func open_input_file(fn Obj) Obj {
 }
 
 func open_output_file(fn Obj) Obj {
-	f, e := os.OpenFile(string((fn).([]rune)), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+	f, e := os.OpenFile(string(mustString(fn)), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 	if e != nil {
 		panic(fmt.Sprintf("I/O error: %s", e))
 	}
@@ -179,7 +179,7 @@ func open_output_file(fn Obj) Obj {
 
 func open_file_output_port(fn Obj) Obj {
 	// TODO: takes three more arguments
-	f, e := os.OpenFile(string((fn).([]rune)), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+	f, e := os.OpenFile(string(mustString(fn)), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 	if e != nil {
 		panic(fmt.Sprintf("I/O error: %s", e))
 	}
@@ -187,7 +187,7 @@ func open_file_output_port(fn Obj) Obj {
 }
 
 func close_input_port(port Obj) Obj {
-	v := (port).(*InputPort)
+	v := mustInputPort(port)
 	switch f := v.r.(type) {
 	case *os.File:
 		f.Close()
@@ -196,7 +196,7 @@ func close_input_port(port Obj) Obj {
 }
 
 func close_output_port(port Obj) Obj {
-	v := (port).(*OutputPort)
+	v := mustOutputPort(port)
 	switch f := v.w.(type) {
 	case *os.File:
 		f.Close()
@@ -355,7 +355,7 @@ func put_u8(port, octet Obj) Obj {
 }
 
 func put_bytevector(port, _bv Obj) Obj {
-	bv := (_bv).([]byte)
+	bv := mustByteVector(_bv)
 	switch v := (port).(type) {
 	case *OutputPort:
 		if !v.is_binary {
@@ -376,7 +376,7 @@ func put_bytevector(port, _bv Obj) Obj {
 }
 
 func display(x, port Obj) Obj {
-	v := (port).(*OutputPort)
+	v := mustOutputPort(port)
 	if v.is_binary {
 		panic("bad port type")
 	}
@@ -385,7 +385,7 @@ func display(x, port Obj) Obj {
 }
 
 func write(x, port Obj) Obj {
-	v := (port).(*OutputPort)
+	v := mustOutputPort(port)
 	if v.is_binary {
 		panic("bad port type")
 	}
@@ -394,7 +394,7 @@ func write(x, port Obj) Obj {
 }
 
 func open_string_input_port(str Obj) Obj {
-	sink := bytes.NewBufferString(string(str.([]rune)))
+	sink := bytes.NewBufferString(string(mustString(str)))
 	return &InputPort{r: sink}
 }
 
@@ -420,7 +420,7 @@ func u8_list_to_bytevector(l Obj) Obj {
 	var bv []byte = make([]byte, number_to_int(Length(l)))
 
 	for i := 0; l != Eol; i++ {
-		v := (l).(*[2]Obj)
+		v := mustPair(l)
 		octet := number_to_int(v[0])
 		if octet < 0 || octet > 255 {
 			panic("not an octet")
@@ -433,7 +433,7 @@ func u8_list_to_bytevector(l Obj) Obj {
 }
 
 func string_to_utf8(str Obj) Obj {
-	return []byte(string((str).([]rune)))
+	return []byte(string(mustString(str)))
 }
 
 func _open_bytevector_output_port() Obj {
@@ -442,7 +442,7 @@ func _open_bytevector_output_port() Obj {
 }
 
 func _bytevector_output_port_extract(p Obj) Obj {
-	v := (p).(*OutputPort)
+	v := mustOutputPort(p)
 	sink := (v.w).(*bytes.Buffer)
 
 	ret := make([]byte, sink.Len())
@@ -466,7 +466,7 @@ func Command_line() Obj {
 func Set_command_line(strings Obj) Obj {
 	new_args := []string{}
 	for strings != Eol {
-		new_args = append(new_args, string(car(strings).([]rune)))
+		new_args = append(new_args, string(mustString(car(strings))))
 		strings = cdr(strings)
 	}
 	os.Args = new_args
@@ -475,7 +475,7 @@ func Set_command_line(strings Obj) Obj {
 }
 
 func start_cpu_profile(p Obj) Obj {
-	v := (p).(*OutputPort)
+	v := mustOutputPort(p)
 	pprof.StartCPUProfile(v.w)
 
 	return Void
@@ -487,7 +487,7 @@ func stop_cpu_profile() Obj {
 }
 
 func load_plugin(o Obj) Obj {
-	path := string(o.([]rune))
+	path := string(mustString(o))
 	p, err := plugin.Open(path)
 	if err != nil {
 		panic(fmt.Sprintf("bad plugin path: %s", err))
@@ -500,8 +500,8 @@ func load_plugin(o Obj) Obj {
 }
 
 func plugin_lookup(p, m Obj) Obj {
-	p1 := p.(*Plugin)
-	m1 := string(m.([]rune))
+	p1 := mustPlugin(p)
+	m1 := string(mustString(m))
 
 	sym, err := p1.Lookup(m1)
 	if err != nil {

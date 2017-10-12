@@ -55,6 +55,66 @@ type ScmSym struct {
 	str string
 }
 
+func mustVector(o Obj) []Obj {
+	return o.([]Obj)
+}
+
+func mustByteVector(o Obj) []byte {
+	return o.([]byte)
+}
+
+func mustProcedure(o Obj) *Procedure {
+	return o.(*Procedure)
+}
+
+func mustStack(o Obj) *Stack {
+	return o.(*Stack)
+}
+
+func mustUint32(o Obj) uint32 {
+	return o.(uint32)
+}
+
+func mustInt(o Obj) int {
+	return o.(int)
+}
+
+func mustString(o Obj) []rune {
+	return o.([]rune)
+}
+
+func mustThread(o Obj) *Thread {
+	return o.(*Thread)
+}
+
+func mustSymbol(o Obj) *ScmSym {
+	return o.(*ScmSym)
+}
+
+func mustCell(o Obj) *[1]Obj {
+	return o.(*[1]Obj)
+}
+
+func mustPlugin(o Obj) *Plugin {
+	return o.(*Plugin)
+}
+
+func mustInputPort(o Obj) *InputPort {
+	return o.(*InputPort)
+}
+
+func mustOutputPort(o Obj) *OutputPort {
+	return o.(*OutputPort)
+}
+
+func mustChar(o Obj) ScmChar {
+	return o.(ScmChar)
+}
+
+func mustPair(o Obj) *[2]Obj {
+	return o.(*[2]Obj)
+}
+
 // Constants.
 var (
 	False = Obj(false)
@@ -80,11 +140,11 @@ func Make_char(x rune) Obj {
 }
 
 func char_to_int(x Obj) rune {
-	return (x).(ScmChar).codepoint
+	return mustChar(x).codepoint
 }
 
 func char_to_integer(x Obj) Obj {
-	return int((x).(ScmChar).codepoint)
+	return int(mustChar(x).codepoint)
 }
 
 func integer_to_char(c Obj) Obj {
@@ -139,23 +199,23 @@ func Cons(x, y Obj) Obj {
 }
 
 func car(x Obj) Obj {
-	v := (x).(*[2]Obj)
+	v := mustPair(x)
 	return v[0]
 }
 
 func cdr(x Obj) Obj {
-	v := (x).(*[2]Obj)
+	v := mustPair(x)
 	return v[1]
 }
 
 func set_car_ex(x, value Obj) Obj {
-	v := (x).(*[2]Obj)
+	v := mustPair(x)
 	v[0] = value
 	return Void
 }
 
 func set_cdr_ex(x, value Obj) Obj {
-	v := (x).(*[2]Obj)
+	v := mustPair(x)
 	v[1] = value
 	return Void
 }
@@ -171,7 +231,7 @@ func set_cdr_ex(x, value Obj) Obj {
 func Length(x Obj) Obj {
 	var i int
 	for i = 0; x != Eol; i++ {
-		v := (x).(*[2]Obj)
+		v := mustPair(x)
 		x = v[1]
 	}
 	return make_number(i)
@@ -233,17 +293,17 @@ func Make_vector(length, init Obj) Obj {
 }
 
 func vector_length(x Obj) Obj {
-	v := (x).([]Obj)
+	v := mustVector(x)
 	return make_number(len(v))
 }
 
 func Vector_ref(x, idx Obj) Obj {
-	v := (x).([]Obj)
+	v := mustVector(x)
 	return v[fixnum_to_int(idx)]
 }
 
 func Vector_set_ex(x, idx, value Obj) Obj {
-	v := (x).([]Obj)
+	v := mustVector(x)
 	v[fixnum_to_int(idx)] = value
 	return Void
 }
@@ -278,17 +338,17 @@ func Make_string(length, init Obj) Obj {
 }
 
 func String_length(x Obj) Obj {
-	v := (x).([]rune)
+	v := mustString(x)
 	return make_number(len(v))
 }
 
 func String_ref(x, idx Obj) Obj {
-	v := (x).([]rune)
+	v := mustString(x)
 	return Make_char(v[fixnum_to_int(idx)])
 }
 
 func String_set_ex(x, idx, ch Obj) Obj {
-	v := (x).([]rune)
+	v := mustString(x)
 	v[fixnum_to_int(idx)] = char_to_int(ch)
 	return Void
 }
@@ -319,7 +379,7 @@ func getsym(str string) (Obj, bool) {
 }
 
 func String_to_symbol(x Obj) Obj {
-	str := string(x.([]rune))
+	str := string(mustString(x))
 	sym, is_interned := getsym(str)
 	if is_interned {
 		return sym
@@ -328,14 +388,14 @@ func String_to_symbol(x Obj) Obj {
 	// Intern the new symbol
 	symlock.Lock()
 	defer symlock.Unlock()
-	newsym := &ScmSym{string(x.([]rune))}
+	newsym := &ScmSym{string(mustString(x))}
 	symtab[str] = newsym
 
 	return newsym
 }
 
 func scm2str(x Obj) string {
-	return x.(*ScmSym).str
+	return mustSymbol(x).str
 }
 
 func Symbol_to_string(x Obj) Obj {
@@ -343,7 +403,7 @@ func Symbol_to_string(x Obj) Obj {
 		panic("bad type")
 	}
 
-	return ([]rune)(x.(*ScmSym).str)
+	return ([]rune)(mustSymbol(x).str)
 }
 
 type Plugin struct {
@@ -364,7 +424,7 @@ func plugin_p(p Obj) Obj {
 func Obj_display(x Obj, p io.Writer, write Obj) {
 	switch {
 	case number_p(x) != False:
-		str := string((_number_to_string(x, Make_fixnum(10))).([]rune))
+		str := string(mustString(_number_to_string(x, Make_fixnum(10))))
 		fmt.Fprintf(p, "%v", str)
 	case char_p(x) != False:
 		if write != False {
@@ -395,7 +455,7 @@ func Obj_display(x Obj, p io.Writer, write Obj) {
 			fmt.Fprintf(p, "\"")
 		}
 		length := fixnum_to_int(String_length(x))
-		s := (x).([]rune)
+		s := []rune(mustString(x))
 		for i := 0; i < length; i++ {
 			fmt.Fprintf(p, "%c", s[i])
 		}
@@ -428,13 +488,13 @@ func Obj_display(x Obj, p io.Writer, write Obj) {
 	case x == Void:
 		fmt.Fprintf(p, "#<void>")
 	case procedure_p(x) != False:
-		proc := (x).(*Procedure)
+		proc := mustProcedure(x)
 		fmt.Fprintf(p, "#<procedure %s>", proc.name)
 	case port_p(x) != False:
 		display_port(p, x)
 	case bytevector_p(x) != False:
 		fmt.Fprintf(p, "#vu8(")
-		bv := (x).([]byte)
+		bv := mustByteVector(x)
 		for i := 0; i < len(bv); i++ {
 			if i > 0 {
 				fmt.Fprintf(p, " ")
@@ -444,11 +504,11 @@ func Obj_display(x Obj, p io.Writer, write Obj) {
 		fmt.Fprintf(p, ")")
 	case thread_p(x) != False:
 		fmt.Fprintf(p, "#<thread ")
-		t := (x).(*Thread)
+		t := mustThread(x)
 		Obj_display(t.name, p, write)
 		fmt.Fprintf(p, ">")
 	case plugin_p(x) != False:
-		t := (x).(*Plugin)
+		t := mustPlugin(x)
 		fmt.Fprintf(p, "#<plugin %s>", t.name)
 	// Unknown types
 	default:
