@@ -1,5 +1,5 @@
 ;; -*- mode: scheme; coding: utf-8 -*-
-;; Copyright (C) 2011 Göran Weinholt <goran@weinholt.se>
+;; Copyright (C) 2011, 2017 Göran Weinholt <goran@weinholt.se>
 
 ;; Permission is hereby granted, free of charge, to any person obtaining a copy
 ;; of this software and associated documentation files (the "Software"), to deal
@@ -174,21 +174,30 @@
                        cases))))))
 
 (define-macro (cond . tests)
-  ;; TODO: does not support =>
-  ;; TODO: does not support (cond (expr))
   (let lp ((tests tests))
     (if (null? tests)
-        (list 'unspecified)
+        '(unspecified)
         (let ((test (car tests))
               (tests (cdr tests)))
-          (if (eq? (car test) 'else)
+          (if (eq? (car test) 'else)    ;(cond (else x))
               (if (null? tests)
-                  (cons 'begin (cdr test))
+                  `(begin ,@(cdr test))
                   (error 'cond "else must be the last test" tests))
-              (list 'if
-                    (car test)
-                    (cons 'begin (cdr test))
-                    (lp tests)))))))
+              (if (and (pair? (cdr test)) (eq? (cadr test) '=>) (pair? (cddr test)))
+                  (let ((tmp (gensym))) ;(cond (x => y) . _)
+                    `(let ((,tmp ,(car test)))
+                       (if ,tmp
+                           (,(caddr test) ,tmp)
+                           ,(lp tests))))
+                  (if (null? (cdr test)) ;(cond (x) . _)
+                      (let ((tmp (gensym)))
+                        `(let ((,tmp ,(car test)))
+                           (if ,tmp
+                               ,tmp
+                               ,(lp tests))))
+                      `(if ,(car test)      ;(cond (x y) . _)
+                           (begin ,@(cdr test))
+                           ,(lp tests)))))))))
 
 (define-macro (or . arms)
   (let lp ((arms arms))

@@ -195,7 +195,7 @@
                  (set!  n (+ n 4))))))
          n)  => 1)
 
-(check (let ((n 0))                     ;r6s
+(check (let ((n 0))                     ;r6rs
          (call-with-current-continuation
            (lambda (k)
              (dynamic-wind
@@ -212,3 +212,20 @@
                (lambda ()
                  (set! n (+ n 4))))))
          n) => 7)
+
+(check (cond ((> 3 2) 'greater)         ;r6rs
+             ((< 3 2) 'less))
+       => 'greater)
+
+(check (cond ((> 3 3) 'greater)         ;r6rs
+             ((< 3 3) 'less)
+             (else 'equal))
+       => 'equal)
+
+(check (cond ('(1 2 3) => cadr)         ;r6rs
+             (else #f))
+       => 2)
+
+(check (cond (#f 'false)
+             ((cadr '(x y))))
+       => 'y)
