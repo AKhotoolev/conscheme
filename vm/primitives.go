@@ -5,7 +5,7 @@ package vm
 import "fmt"
 import "os"
 
-var primitive [112]Obj
+var primitive [122]Obj
 
 func init() {
 	primitive[111] = &Procedure{name: "plugin-lookup", required: 2, apply: nil, label: 111}
@@ -39,8 +39,11 @@ func init() {
 	primitive[76] = &Procedure{name: "close-port", required: 1, apply: nil, label: 76}
 	primitive[75] = &Procedure{name: "close-output-port", required: 1, apply: nil, label: 75}
 	primitive[74] = &Procedure{name: "close-input-port", required: 1, apply: nil, label: 74}
+	primitive[112] = &Procedure{name: "open-file-input-port", required: 1, apply: nil, label: 112}
 	primitive[73] = &Procedure{name: "open-file-output-port", required: 1, apply: nil, label: 73}
 	primitive[104] = &Procedure{name: "open-string-input-port", required: 1, apply: nil, label: 104}
+	primitive[119] = &Procedure{name: "$string-output-port-extract", required: 1, apply: nil, label: 119}
+	primitive[118] = &Procedure{name: "$open-string-output-port", required: 0, apply: nil, label: 118}
 	primitive[99] = &Procedure{name: "open-output-file", required: 1, apply: nil, label: 99}
 	primitive[72] = &Procedure{name: "open-input-file", required: 1, apply: nil, label: 72}
 	primitive[71] = &Procedure{name: "delete-file", required: 1, apply: nil, label: 71}
@@ -50,8 +53,13 @@ func init() {
 	primitive[67] = &Procedure{name: "output-port?", required: 1, apply: nil, label: 67}
 	primitive[66] = &Procedure{name: "input-port?", required: 1, apply: nil, label: 66}
 	primitive[65] = &Procedure{name: "port?", required: 1, apply: nil, label: 65}
+	primitive[117] = &Procedure{name: "bytevector-s8-set!", required: 3, apply: nil, label: 117}
+	primitive[115] = &Procedure{name: "bytevector-s8-ref", required: 2, apply: nil, label: 115}
+	primitive[116] = &Procedure{name: "bytevector-u8-set!", required: 3, apply: nil, label: 116}
+	primitive[114] = &Procedure{name: "bytevector-u8-ref", required: 2, apply: nil, label: 114}
 	primitive[64] = &Procedure{name: "$bytevector-output-port-extract", required: 1, apply: nil, label: 64}
 	primitive[63] = &Procedure{name: "$open-bytevector-output-port", required: 0, apply: nil, label: 63}
+	primitive[113] = &Procedure{name: "utf8->string", required: 1, apply: nil, label: 113}
 	primitive[62] = &Procedure{name: "string->utf8", required: 1, apply: nil, label: 62}
 	primitive[61] = &Procedure{name: "u8-list->bytevector", required: 1, apply: nil, label: 61}
 	primitive[60] = &Procedure{name: "bytevector-length", required: 1, apply: nil, label: 60}
@@ -80,6 +88,8 @@ func init() {
 	primitive[41] = &Procedure{name: "string?", required: 1, apply: nil, label: 41}
 	primitive[40] = &Procedure{name: "greatest-fixnum", required: 0, apply: nil, label: 40}
 	primitive[39] = &Procedure{name: "least-fixnum", required: 0, apply: nil, label: 39}
+	primitive[121] = &Procedure{name: "remainder", required: 2, apply: nil, label: 121}
+	primitive[120] = &Procedure{name: "quotient", required: 2, apply: nil, label: 120}
 	primitive[100] = &Procedure{name: "bitwise-arithmetic-shift-left", required: 2, apply: nil, label: 100}
 	primitive[38] = &Procedure{name: "bitwise-arithmetic-shift-right", required: 2, apply: nil, label: 38}
 	primitive[37] = &Procedure{name: "$bitwise-and", required: 2, apply: nil, label: 37}
@@ -186,10 +196,16 @@ func evprimn(primop uint32, args []Obj, ct Obj) Obj {
 		return close_output_port(args[0])
 	case 74: // close-input-port
 		return close_input_port(args[0])
+	case 112: // open-file-input-port
+		return open_file_input_port(args[0])
 	case 73: // open-file-output-port
 		return open_file_output_port(args[0])
 	case 104: // open-string-input-port
 		return open_string_input_port(args[0])
+	case 119: // $string-output-port-extract
+		return _string_output_port_extract(args[0])
+	case 118: // $open-string-output-port
+		return _open_string_output_port()
 	case 99: // open-output-file
 		return open_output_file(args[0])
 	case 72: // open-input-file
@@ -208,10 +224,32 @@ func evprimn(primop uint32, args []Obj, ct Obj) Obj {
 		return input_port_p(args[0])
 	case 65: // port?
 		return port_p(args[0])
+	case 117: // bytevector-s8-set!
+		bv := mustByteVector(args[0])
+		idx := mustInt(args[1])
+		v := mustInt(args[2])
+		bv[idx] = uint8(v)
+		return Void
+	case 115: // bytevector-s8-ref
+		bv := mustByteVector(args[0])
+		idx := mustInt(args[1])
+		return int(int8(bv[idx]))
+	case 116: // bytevector-u8-set!
+		bv := mustByteVector(args[0])
+		idx := mustInt(args[1])
+		v := mustInt(args[2])
+		bv[idx] = uint8(v)
+		return Void
+	case 114: // bytevector-u8-ref
+		bv := mustByteVector(args[0])
+		idx := mustInt(args[1])
+		return int(bv[idx])
 	case 64: // $bytevector-output-port-extract
 		return _bytevector_output_port_extract(args[0])
 	case 63: // $open-bytevector-output-port
 		return _open_bytevector_output_port()
+	case 113: // utf8->string
+		return utf8_to_string(args[0])
 	case 62: // string->utf8
 		return string_to_utf8(args[0])
 	case 61: // u8-list->bytevector
@@ -300,6 +338,10 @@ func evprimn(primop uint32, args []Obj, ct Obj) Obj {
 		return Make_fixnum(fixnum_max)
 	case 39: // least-fixnum
 		return Make_fixnum(fixnum_min)
+	case 121: // remainder
+		return number_remainder(args[0], args[1])
+	case 120: // quotient
+		return number_quotient(args[0], args[1])
 	case 100: // bitwise-arithmetic-shift-left
 		return bitwise_arithmetic_shift_left(args[0], args[1])
 	case 38: // bitwise-arithmetic-shift-right

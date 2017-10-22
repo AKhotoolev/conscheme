@@ -610,6 +610,38 @@
     (close-port port)
     ret))
 
+(define (open-bytevector-output-port)
+  (let ((p ($open-bytevector-output-port)))
+    (values p (lambda () ($bytevector-output-port-extract p)))))
+
+(define (call-with-bytevector-output-port proc)
+  (call-with-values
+    open-bytevector-output-port
+    (lambda (port extract)
+      (proc port)
+      (extract))))
+
+(define (get-bytevector-n in n)
+  (call-with-bytevector-output-port
+    (lambda (out)
+      (let lp ((n n))
+        (when (> n 0)
+          (let ((b (get-u8 in)))
+            (unless (eof-object? b)
+              (put-u8 out b)
+              (lp (- n 1)))))))))
+
+(define (open-string-output-port)
+  (let ((p ($open-string-output-port)))
+    (values p (lambda () ($string-output-port-extract p)))))
+
+(define (call-with-string-output-port proc)
+  (call-with-values
+    open-string-output-port
+    (lambda (port extract)
+      (proc port)
+      (extract))))
+
 (define (bitwise-ior . xs)
   (let lp ((ret 0)
            (xs xs))
@@ -639,7 +671,40 @@
                 (and (apply f (car l) (map car ls))
                      (lp (cdr l) (map cdr ls))))))))
 
+(define-macro (endianness endian)
+  (case endian
+    ((little) ''little)
+    ((end) ''end)
+    (else (error 'endianness "Unsupported endianness" endian))))
+
+(define (bytevector-u32-ref bv idx endian)
+  (let ((b4 (bytevector-u8-ref bv (+ idx 3)))
+        (b3 (bytevector-u8-ref bv (+ idx 2)))
+        (b2 (bytevector-u8-ref bv (+ idx 1)))
+        (b1 (bytevector-u8-ref bv idx)))
+    (case endian
+      ((little)
+       (bitwise-ior (bitwise-arithmetic-shift-left b4 24)
+                    (bitwise-arithmetic-shift-left b3 16)
+                    (bitwise-arithmetic-shift-left b2 8)
+                    b1))
+      ((big)
+       (bitwise-ior (bitwise-arithmetic-shift-left b1 24)
+                    (bitwise-arithmetic-shift-left b2 16)
+                    (bitwise-arithmetic-shift-left b3 8)
+                    b4))
+      (else
+       (error 'bytevector-u32-ref "Unsupported endianness" endian)))))
+
 ;;; SRFI-1
+
+(define (iota n)
+  (unless (>= n 0)
+    (error 'iota "Argument must be non-negative" n))
+  (let lp ((n n) (acc '()))
+    (if (= n 0)
+        acc
+        (lp (- n 1) (cons (- n 1) acc)))))
 
 (define (make-list len . rest)
   (let ((fill (cond ((null? rest) #f)
@@ -713,6 +778,26 @@
           (else
            (lp (cdr l) ls)))))
 
+;;; SRFI-13
+
+(define (string-join str* . rest*)
+  (let ((delimiter (if (pair? rest*) (car rest*) #\space))
+        (grammar (if (and (pair? rest*) (pair? (cdr rest*))) (cadr rest*) 'infix)))
+    (when (and (eq? grammar 'string-infix) (not (pair? str*)))
+      (error 'string-join "Empty list of strings" str* delimiter grammar))
+    (call-with-string-output-port
+      (lambda (p)
+        (do ((str* str* (cdr str*)))
+            ((null? str*))
+          (when (eq? grammar 'prefix)
+            (display delimiter p))
+          (display (car str*) p)
+          (when (and (memq grammar '(infix strict-infix))
+                     (pair? (cdr str*)))
+            (display delimiter p))
+          (when (eq? grammar 'suffix)
+            (display delimiter p)))))))
+
 ;;; SRFI-18
 
 (define (make-thread thunk . rest)
@@ -728,6 +813,23 @@
 
 (define (receive)
   ($receive (current-thread)))
+
+;;; SRFI-43
+
+(define (vector-binary-search vec value cmp . rest*)
+  ;; From the reference implementation SRFI 43.
+  ;; Taylor Campbell wrote this code; he places it in the public domain.
+  ;; Will Clinger [wdc] made some corrections, also in the public domain.
+  (let ((start (if (pair? rest*) (car rest*) 0))
+        (end (if (and (pair? rest*) (pair? (cdr rest*))) (cadr rest*) (vector-length vec))))
+    (let loop ((start start) (end end) (j #f))
+      (let ((i (quotient (+ start end) 2)))
+        (if (or (= start end) (and j (= i j)))
+            #f
+            (let ((comparison (cmp (vector-ref vec i) value)))
+              (cond ((zero?     comparison) i)
+                    ((positive? comparison) (loop start i i))
+                    (else                   (loop i end i)))))))))
 
 ;;; Extra threading stuff
 
@@ -818,10 +920,6 @@
                         (car rest))))
         (set! x (+ x 1))
         (string->symbol (string-append prefix (number->string x)))))))
-
-(define (open-bytevector-output-port)
-  (let ((p ($open-bytevector-output-port)))
-    (values p (lambda () ($bytevector-output-port-extract p)))))
 
 (define (call-with-pprof-to-file fn f)
   ;; XXX: not thread-safe

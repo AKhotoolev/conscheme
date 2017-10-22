@@ -553,3 +553,71 @@ func _string_to_number(_str Obj, _radix Obj) Obj {
 	}
 	return z
 }
+
+func number_quotient(x, y Obj) Obj {
+	xfx := fixnum_p(x) == True
+	yfx := fixnum_p(y) == True
+	if xfx && yfx {
+		i1 := fixnum_to_int(x)
+		i2 := fixnum_to_int(y)
+		q := i1 / i2
+		if q >= fixnum_min && q <= fixnum_max {
+			return Make_fixnum(q)
+		} else {
+			return big.NewInt(int64(q))
+		}
+	}
+
+	if xfx {
+		x = big.NewInt(int64(fixnum_to_int(x)))
+	}
+	if yfx {
+		y = big.NewInt(int64(fixnum_to_int(y)))
+	}
+
+	switch vx := (x).(type) {
+	case *big.Int:
+		var z *big.Int = big.NewInt(0)
+		switch vy := (y).(type) {
+		case *big.Int:
+			return simpBig(z.Quo(vx, vy))
+		default:
+			panic("bad type")
+		}
+	}
+	panic("bad type")
+}
+
+func number_remainder(x, y Obj) Obj {
+	xfx := fixnum_p(x) == True
+	yfx := fixnum_p(y) == True
+	if xfx && yfx {
+		i1 := fixnum_to_int(x)
+		i2 := fixnum_to_int(y)
+		r := i1 % i2
+		if r >= fixnum_min && r <= fixnum_max {
+			return Make_fixnum(r)
+		} else {
+			return big.NewRat(int64(i1), int64(i2))
+		}
+	}
+
+	if xfx {
+		x = big.NewInt(int64(fixnum_to_int(x)))
+	}
+	if yfx {
+		y = big.NewInt(int64(fixnum_to_int(y)))
+	}
+
+	switch vx := (x).(type) {
+	case *big.Int:
+		var z *big.Int = big.NewInt(0)
+		switch vy := (y).(type) {
+		case *big.Int:
+			return simpBig(z.Rem(vx, vy))
+		default:
+			panic("bad type")
+		}
+	}
+	panic("bad type")
+}

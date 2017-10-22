@@ -186,6 +186,15 @@ func open_file_output_port(fn Obj) Obj {
 	return &OutputPort{w: f, is_binary: true}
 }
 
+func open_file_input_port(fn Obj) Obj {
+	// TODO: takes three more arguments
+	f, e := os.OpenFile(string(mustString(fn)), os.O_RDONLY, 0666)
+	if e != nil {
+		panic(fmt.Sprintf("I/O error: %s", e))
+	}
+	return &InputPort{r: f, is_binary: true}
+}
+
 func close_input_port(port Obj) Obj {
 	v := mustInputPort(port)
 	switch f := v.r.(type) {
@@ -398,6 +407,20 @@ func open_string_input_port(str Obj) Obj {
 	return &InputPort{r: sink}
 }
 
+func _open_string_output_port() Obj {
+	var sink bytes.Buffer
+	return &OutputPort{w: &sink, is_binary: false}
+}
+
+func _string_output_port_extract(p Obj) Obj {
+	v := mustOutputPort(p)
+	sink := (v.w).(*bytes.Buffer)
+	ret := []rune(sink.String())
+	sink.Reset()
+
+	return ret
+}
+
 // Bytevectors
 
 func bytevector_p(x Obj) Obj {
@@ -434,6 +457,10 @@ func u8_list_to_bytevector(l Obj) Obj {
 
 func string_to_utf8(str Obj) Obj {
 	return []byte(string(mustString(str)))
+}
+
+func utf8_to_string(bv Obj) Obj {
+	return []rune(string(mustByteVector(bv)))
 }
 
 func _open_bytevector_output_port() Obj {

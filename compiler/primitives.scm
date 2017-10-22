@@ -139,7 +139,17 @@
     (thread-winders . 108)
     (thread-winders-set! . 109)
     (load-plugin . 110)
-    (plugin-lookup . 111)))
+    (plugin-lookup . 111)
+    (open-file-input-port . 112)
+    (utf8->string . 113)
+    (bytevector-u8-ref . 114)
+    (bytevector-s8-ref . 115)
+    (bytevector-u8-set! . 116)
+    (bytevector-s8-set! . 117)
+    ($open-string-output-port . 118)
+    ($string-output-port-extract . 119)
+    (quotient . 120)
+    (remainder . 121)))
 
 (define (primitive-number name)
   (let ((v (assq name *primitive-numbers*)))
@@ -322,6 +332,8 @@
 (define-call $bitwise-and "bitwise_and" 2)
 (define-call bitwise-arithmetic-shift-right "bitwise_arithmetic_shift_right" 2)
 (define-call bitwise-arithmetic-shift-left "bitwise_arithmetic_shift_left" 2)
+(define-call quotient "number_quotient" 2)
+(define-call remainder "number_remainder" 2)
 
 (define-operation least-fixnum (list "return Make_fixnum(fixnum_min)"))
 (define-primitive (least-fixnum))
@@ -443,8 +455,34 @@
 (define-call bytevector-length "bytevector_length" 1)
 (define-call u8-list->bytevector "u8_list_to_bytevector" 1)
 (define-call string->utf8 "string_to_utf8" 1)
+(define-call utf8->string "utf8_to_string" 1)
 (define-call $open-bytevector-output-port "_open_bytevector_output_port" 0)
 (define-call $bytevector-output-port-extract "_bytevector_output_port_extract" 1)
+(define-operation bytevector-u8-ref
+  (list (string-append "bv := mustByteVector(" (argn 0) ")")
+        (string-append "idx := mustInt(" (argn 1) ")")
+        "return int(bv[idx])"))
+(define-primitive (bytevector-u8-ref bv idx))
+(define-operation bytevector-u8-set!
+  (list (string-append "bv := mustByteVector(" (argn 0) ")")
+        (string-append "idx := mustInt(" (argn 1) ")")
+        (string-append "v := mustInt(" (argn 2) ")")
+        "bv[idx] = uint8(v)"
+        "return Void"))
+(define-primitive (bytevector-u8-set! bv idx v))
+
+(define-operation bytevector-s8-ref
+  (list (string-append "bv := mustByteVector(" (argn 0) ")")
+        (string-append "idx := mustInt(" (argn 1) ")")
+        "return int(int8(bv[idx]))"))
+(define-primitive (bytevector-s8-ref bv idx))
+(define-operation bytevector-s8-set!
+  (list (string-append "bv := mustByteVector(" (argn 0) ")")
+        (string-append "idx := mustInt(" (argn 1) ")")
+        (string-append "v := mustInt(" (argn 2) ")")
+        "bv[idx] = uint8(v)"
+        "return Void"))
+(define-primitive (bytevector-s8-set! bv idx v))
 
 ;; I/O
 
@@ -458,8 +496,11 @@
 (define-call delete-file "delete_file" 1)
 (define-call open-input-file "open_input_file" 1)
 (define-call open-output-file "open_output_file" 1)
+(define-call $open-string-output-port "_open_string_output_port" 0)
+(define-call $string-output-port-extract "_string_output_port_extract" 1)
 (define-call open-string-input-port "open_string_input_port" 1)
 (define-call open-file-output-port "open_file_output_port" 1) ;TODO: three more arguments
+(define-call open-file-input-port "open_file_input_port" 1) ;TODO: three more arguments
 (define-call close-input-port "close_input_port" 1)
 (define-call close-output-port "close_output_port" 1)
 (define-call close-port "close_port" 1)
