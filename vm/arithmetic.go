@@ -267,13 +267,11 @@ func number_multiply(x, y Obj) Obj {
 	xfx := fixnum_p(x) == True
 	yfx := fixnum_p(y) == True
 	if xfx && yfx {
-		i1 := int64(fixnum_to_int(x))
-		i2 := int64(fixnum_to_int(y))
+		i1 := fixnum_to_int(x)
+		i2 := fixnum_to_int(y)
 		r := i1 * i2
-		if r > int64(fixnum_min) && r < int64(fixnum_max) { // XXX: invalid overflow check
+		if !((i2 < 0 && i1 == fixnum_min) || (i2 != 0 && r/i2 != i1)) {
 			return Make_fixnum(int(r))
-		} else {
-			return big.NewInt(r)
 		}
 	}
 

@@ -238,3 +238,6 @@
 (check (cond (#f 'false)
              ((cadr '(x y))))
        => 'y)
+
+(check (* (least-fixnum) -1) => (+ (greatest-fixnum) 1))
+(check (* -1 (least-fixnum)) => (+ (greatest-fixnum) 1))
