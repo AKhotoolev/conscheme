@@ -95,3 +95,7 @@ Here's CPU profiling:
 $ ./conscheme -cpuprofile conscheme.prof -script tests.scm
 $ go tool pprof ./conscheme conscheme.prof
 ```
+
+## Related software
+
+https://github.com/SteelSeries/golisp
